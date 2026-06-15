@@ -470,7 +470,7 @@ function renderAuthorsBar(root){
     const chip = el('div','auth-chip');
     chip.innerHTML = `<button class="del" title="Удалить">✕</button>
       <div class="nm"></div>
-      <div class="st ${n?'playing':''}">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>
+      <div class="st ${n?'playing':''}">${ n ? '🎮 играют: '+n : 'циклов ещё нет'}</div>
       <div class="tx"></div>`;
     chip.querySelector('.nm').textContent = r.author;
     chip.querySelector('.tx').textContent = preview(r.text, r);
@@ -487,7 +487,7 @@ function renderAuthorsBar(root){
 function initialColumn(root){
   const col = el('div','col');
   col.innerHTML = `<div class="col-head"><div class="title">📜 Исходный текст · ${esc(root.author)}</div>
-    <div class="meta">Первый ход — прочитать и ответить автору</div></div>`;
+    <div class="meta">Первый цикл — прочитать и ответить автору</div></div>`;
   const body = el('div','col-body');
   const card = el('div','card root');
   card.innerHTML = `<button class="del" title="Удалить">✕</button>
@@ -502,7 +502,7 @@ function initialColumn(root){
   col.appendChild(body);
   const foot = el('div','col-foot');
   const btn = el('button','btn sm primary'); btn.style.width='100%';
-  btn.textContent='💬 Сделать первый ход — ответить автору';
+  btn.textContent='💬 Сделать первый цикл — ответить автору';
   btn.onclick = ()=>openReplyModal(root, null);
   foot.appendChild(btn);
   col.appendChild(foot);
@@ -516,18 +516,18 @@ function chainColumn(root, chain){
       <span class="name-chip">${esc(root.author)}</span>
       <span class="arrow">⇄</span>
       <span class="name-chip">${esc(chain.responder)}</span></span></div>
-    <div class="meta">по тексту: «${esc(root.title||'без названия')}» · кругов: ${chain.replies.length}</div>`;
+    <div class="meta">по тексту: «${esc(root.title||'без названия')}» · циклов: ${chain.replies.length}</div>`;
   col.appendChild(head);
   const body = el('div','col-body');
   for(const rep of chain.replies){
     const card = el('div','card');
     const odd = rep.round % 2 === 1;
     card.innerHTML = `<button class="del" title="Удалить">✕</button>
-      <div class="ctop"><span class="round-badge ${odd?'odd':''}">КРУГ ${rep.round}</span>
+      <div class="ctop"><span class="round-badge ${odd?'odd':''}">ЦИКЛ ${rep.round}</span>
       <span class="author">от <b>${esc(rep.author)}</b> → ${esc(rep.toName)}</span></div>
       <div class="text preview"></div>`;
     card.querySelector('.text').textContent = preview(rep.text, rep);
-    card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить этот ответ (круг '+rep.round+')?')) dataLayer.remove(rep.id); };
+    card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить этот ответ (цикл '+rep.round+')?')) dataLayer.remove(rep.id); };
     card.appendChild(fileTag(rep));
     card.appendChild(cardActions(rep, '📖 Читать'));
     body.appendChild(card);
@@ -539,7 +539,7 @@ function chainColumn(root, chain){
   readBtn.textContent = '📖 Читать ветку';
   readBtn.onclick = ()=>openThreadReader(root, chain);
   const ansBtn = el('button','btn sm'); ansBtn.style.width='100%'; ansBtn.style.marginTop='8px';
-  ansBtn.textContent = `＋ Ответить (круг ${next.round}, пишет ${next.author})`;
+  ansBtn.textContent = `＋ Ответить (цикл ${next.round}, пишет ${next.author})`;
   ansBtn.onclick = ()=>openReplyModal(root, chain);
   foot.appendChild(readBtn); foot.appendChild(ansBtn);
   col.appendChild(foot);
@@ -552,13 +552,13 @@ function openThreadReader(root, chain){
   blocks.push(blockHTML('ИСХОДНЫЙ', 'root', 'Автор: '+esc(root.author), root));
   for(const rep of chain.replies){
     const odd = rep.round%2===1;
-    blocks.push(blockHTML('КРУГ '+rep.round, odd?'odd':'', esc(rep.author)+' → '+esc(rep.toName), rep));
+    blocks.push(blockHTML('ЦИКЛ '+rep.round, odd?'odd':'', esc(rep.author)+' → '+esc(rep.toName), rep));
   }
   modal.className = 'reader';
   modal.innerHTML = `
     <div class="reader-head">
       <div class="ti"><h2>Ветка: ${esc(root.author)} ⇄ ${esc(chain.responder)}</h2>
-        <div class="who">основной текст → ходы по порядку (${chain.replies.length})</div></div>
+        <div class="who">основной текст → циклы по порядку (${chain.replies.length})</div></div>
       <div class="tools">
         <button class="x-close" id="fs" title="Развернуть на весь экран">⛶</button>
         <button class="x-close" id="xclose" title="Закрыть">✕</button>
@@ -571,7 +571,7 @@ function openThreadReader(root, chain){
   const foot = modal.querySelector('.reader-foot');
   const next = nextRoundInfo(root, chain);
   const ans = el('button','btn sm primary');
-  ans.textContent = `＋ Ответить (круг ${next.round})`;
+  ans.textContent = `＋ Ответить (цикл ${next.round})`;
   ans.onclick = ()=>{ closeReader(); openReplyModal(root, chain); };
   const cl = el('button','btn sm ghost'); cl.textContent='Закрыть'; cl.onclick=closeReader;
   foot.appendChild(ans); foot.appendChild(cl);
@@ -644,7 +644,7 @@ function cardActions(item, readLabel){
 function openReader(item){
   const isRoot = item.type==='root';
   const who = isRoot ? ('Автор: '+esc(item.author)) :
-    ('Круг '+item.round+' · от '+esc(item.author)+' → '+esc(item.toName));
+    ('Цикл '+item.round+' · от '+esc(item.author)+' → '+esc(item.toName));
   const title = isRoot ? esc(item.title||item.author) : ('Ответ — '+esc(item.toName));
   const pdfUrl = (item.fileType||'').toLowerCase()==='pdf' ? (item.fileUrl||item.fileData) : null;
   const text = item.text || '';
@@ -776,7 +776,7 @@ function historyHTML(root, chain){
     for(const r of chain.replies){
       const odd = r.round%2===1;
       h += `<div class="thread-item">
-        <div class="th-meta"><span class="th-tag ${odd?'odd':''}">КРУГ ${r.round}</span> ${esc(r.author)} → ${esc(r.toName)}</div>
+        <div class="th-meta"><span class="th-tag ${odd?'odd':''}">ЦИКЛ ${r.round}</span> ${esc(r.author)} → ${esc(r.toName)}</div>
         <div class="th-text">${esc(r.text)}</div>
       </div>`;
     }
@@ -793,18 +793,18 @@ function openReplyModal(root, chain){
     const info = nextRoundInfo(root, chain || {responder, replies:[]});
     // в существующей ветке автор круга определяется автоматически и не меняется
     const lockedAuthor = info.author;
-    modal.innerHTML = `<h2>💬 Ответ — круг ${info.round}</h2>
+    modal.innerHTML = `<h2>💬 Ответ — цикл ${info.round}</h2>
       <div class="content">
         <div class="hint" style="margin-bottom:10px">
           ${isNew
-            ? 'Вы начинаете <b>новую ветку</b> от исходного текста (круг 1).'
+            ? 'Вы начинаете <b>новую ветку</b> от исходного текста (цикл 1).'
             : `Ветка <b>${esc(root.author)} ⇄ ${esc(responder)}</b> — пишет <b>${esc(lockedAuthor)}</b>.`}
         </div>
         <label>Предыдущие тексты</label>
         ${historyHTML(root, chain)}
         ${isNew ? `<div class="field" style="margin-top:14px"><label>Кто отвечает (вы — респондент)</label>
           <input id="resp" value="${esc(responder)}"></div>` : ''}
-        <div class="field" style="margin-top:14px"><label>Текст ответа (круг ${info.round}, автор ${esc(lockedAuthor)})</label>
+        <div class="field" style="margin-top:14px"><label>Текст ответа (цикл ${info.round}, автор ${esc(lockedAuthor)})</label>
           <textarea id="txt" placeholder="Ваша интерпретация / ответ…"></textarea></div>
         <div class="field"><label>…или загрузите файл (docx, pdf, doc, txt)</label>
           <input type="file" id="file" accept=".doc,.docx,.pdf,.txt"></div>
