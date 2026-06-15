@@ -53,6 +53,25 @@
   .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
   .btn.icon{padding:8px 11px}
 
+  /* Карусель авторов (горизонтальная) */
+  .authors-bar{display:flex;gap:10px;align-items:stretch;padding:12px 18px;overflow-x:auto;
+    border-bottom:1px solid var(--line);background:var(--headBg)}
+  .authors-bar.hidden{display:none}
+  .auth-chip{min-width:210px;max-width:230px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:11px 13px;cursor:pointer;transition:.12s;position:relative;flex:0 0 auto}
+  .auth-chip:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .auth-chip .nm{font-weight:650;font-size:13.5px;margin-bottom:3px;padding-right:14px}
+  .auth-chip .st{font-size:11px;color:var(--muted)}
+  .auth-chip .st.playing{color:var(--accent2)}
+  .auth-chip .del{position:absolute;top:6px;right:7px;font-size:12px}
+  .auth-add{min-width:150px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    border:1px dashed var(--line);border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;font-size:13px}
+  .auth-add:hover{border-color:var(--accent);color:var(--accent)}
+  .selbar{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--headBg)}
+  .selbar.hidden{display:none}
+  .selbar .who{font-weight:650;font-size:14px}
+  .selbar .who small{color:var(--muted);font-weight:400;margin-left:6px}
+
   /* Board */
   .board{
     flex:1;display:flex;gap:16px;padding:18px;overflow-x:auto;overflow-y:hidden;align-items:flex-start;
@@ -91,6 +110,7 @@
   .card .author{font-size:12px;color:var(--muted)}
   .card .author b{color:var(--text)}
   .card .text{font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .card .text.preview{max-height:230px;overflow-y:auto;padding-right:4px}
   .card .text.clamped{max-height:160px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent)}
   .card .expand{font-size:12px;color:var(--accent);cursor:pointer;margin-top:6px;display:inline-block}
   .card .ttl{font-weight:650;font-size:14px;margin-bottom:6px}
@@ -175,6 +195,7 @@
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
 </header>
 
+<div id="authorsBar" class="authors-bar"></div>
 <div class="board" id="board"></div>
 
 <!-- импорт готовых веток (реальные тексты); файл может отсутствовать -->
@@ -359,11 +380,10 @@ function chainsForRoot(rootId){
 const board = document.getElementById('board');
 
 function render(){
-  board.innerHTML = '';
-  // 1) колонка выбора автора
-  board.appendChild(authorsColumn());
-  // 2) выбранный автор: исходный текст первой карточкой + ветки игроков
   const root = state.selected ? roots().find(r=>r.id===state.selected) : null;
+  renderAuthorsBar(root);
+  board.innerHTML = '';
+  // выбранный автор: исходный текст первой карточкой + ветки игроков
   if(root){
     board.appendChild(initialColumn(root));
     for(const chain of chainsForRoot(root.id)){
@@ -371,37 +391,48 @@ function render(){
     }
   } else {
     const hint = el('div','col');
-    hint.innerHTML = `<div class="col-body"><div class="empty">← Выберите автора слева, чтобы прочитать его текст и сделать ход</div></div>`;
+    hint.innerHTML = `<div class="col-body"><div class="empty">↑ Выберите автора сверху, чтобы прочитать его текст и сделать ход</div></div>`;
     board.appendChild(hint);
   }
 }
 
-// Левая колонка: список авторов (выбор ветки)
-function authorsColumn(){
-  const col = el('div','col roots');
-  col.innerHTML = `<div class="col-head"><div class="title">👥 Авторы</div>
-    <div class="meta">Выберите, с чьим текстом играть</div></div>`;
-  const body = el('div','col-body');
+// Горизонтальная карусель авторов сверху; после выбора — сворачивается в строку
+function renderAuthorsBar(root){
+  const bar = document.getElementById('authorsBar');
+  let sel = document.getElementById('selBar');
+  if(!sel){
+    sel = el('div','selbar'); sel.id='selBar';
+    bar.parentNode.insertBefore(sel, bar.nextSibling);
+  }
+  if(root){
+    bar.classList.add('hidden');
+    sel.classList.remove('hidden');
+    sel.innerHTML = '';
+    const back = el('button','btn sm'); back.textContent='← Сменить автора';
+    back.onclick = ()=>{ state.selected=null; render(); };
+    const who = el('div','who'); who.innerHTML = `${esc(root.author)} <small>исходный текст</small>`;
+    sel.appendChild(back); sel.appendChild(who);
+    return;
+  }
+  sel.classList.add('hidden');
+  bar.classList.remove('hidden');
+  bar.innerHTML = '';
   const rs = roots();
-  if(!rs.length){ body.appendChild(elText('empty','Пока пусто. Нажмите «＋ Исходный текст».')); }
+  if(!rs.length){ bar.appendChild(elText('empty','Пока пусто. Нажмите «＋ Исходный текст».')); }
   for(const r of rs){
     const n = chainsForRoot(r.id).length;
-    const card = el('div','card author-card'+(state.selected===r.id?' sel':''));
-    card.innerHTML = `<button class="del" title="Удалить">✕</button>
-      <div class="ttl"></div>
-      <div class="file-tag" style="margin-top:2px">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>`;
-    card.querySelector('.ttl').textContent = r.author;
-    card.querySelector('.del').onclick = (e)=>{ e.stopPropagation();
-      if(confirm('Удалить исходный текст «'+r.author+'» и все его ветки?')){ if(state.selected===r.id) state.selected=null; dataLayer.remove(r.id);} };
-    card.onclick = ()=>{ state.selected = r.id; render(); };
-    body.appendChild(card);
+    const chip = el('div','auth-chip');
+    chip.innerHTML = `<button class="del" title="Удалить">✕</button>
+      <div class="nm"></div>
+      <div class="st ${n?'playing':''}">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>`;
+    chip.querySelector('.nm').textContent = r.author;
+    chip.querySelector('.del').onclick = (e)=>{ e.stopPropagation();
+      if(confirm('Удалить исходный текст «'+r.author+'» и все его ветки?')) dataLayer.remove(r.id); };
+    chip.onclick = ()=>{ state.selected = r.id; render(); };
+    bar.appendChild(chip);
   }
-  col.appendChild(body);
-  const foot = el('div','col-foot');
-  const add = el('button','btn sm'); add.textContent='＋ Исходный текст'; add.style.width='100%';
-  add.onclick = openRootModal; foot.appendChild(add);
-  col.appendChild(foot);
-  return col;
+  const add = el('button','auth-add'); add.textContent='＋ Исходный текст';
+  add.onclick = openRootModal; bar.appendChild(add);
 }
 
 // Колонка выбранного автора: исходный текст первой карточкой + «первый ход»
@@ -472,10 +503,10 @@ function nextRoundInfo(root, chain){
   return {round, author, toName};
 }
 
-// краткий превью текста для карточки
+// текст для карточки — полный, прокручивается в окне превью
 function preview(text, item){
-  const t = (text||'').replace(/\s+/g,' ').trim();
-  if(t) return t.length > 220 ? t.slice(0,220)+'…' : t;
+  const t = (text||'').trim();
+  if(t) return t;
   if(item && item.fileName) return '📎 '+item.fileName;
   return '(пусто)';
 }
@@ -530,12 +561,17 @@ function openReader(item){
     <div class="reader-body ${text?'':'empty'}">${ text ? esc(text) : 'Текст недоступен для предпросмотра — скачайте оригинал.' }</div>
     <div class="reader-foot"></div>`;
   const foot = modal.querySelector('.reader-foot');
+  if(isRoot){
+    const play = el('button','btn sm primary'); play.textContent='🎮 Начать игру — ответить автору';
+    play.onclick = ()=>{ closeReader(); state.selected = item.id; render(); openReplyModal(item, null); };
+    foot.appendChild(play);
+  }
   if(pdfUrl){
     const op = document.createElement('a'); op.className='btn sm'; op.href=pdfUrl; op.target='_blank'; op.textContent='🔍 Открыть PDF в новой вкладке'; foot.appendChild(op);
   }
   const url = item.fileUrl || item.fileData;
   if(url){
-    const dl = document.createElement('a'); dl.className='btn sm primary'; dl.href=url;
+    const dl = document.createElement('a'); dl.className='btn sm'; dl.href=url;
     dl.setAttribute('download', item.fileName||''); dl.textContent='⬇ Скачать оригинал';
     foot.appendChild(dl);
   }
