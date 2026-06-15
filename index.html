@@ -57,13 +57,15 @@
   .authors-bar{display:flex;gap:10px;align-items:stretch;padding:12px 18px;overflow-x:auto;
     border-bottom:1px solid var(--line);background:var(--headBg)}
   .authors-bar.hidden{display:none}
-  .auth-chip{min-width:210px;max-width:230px;background:var(--panel);border:1px solid var(--line);
-    border-radius:12px;padding:11px 13px;cursor:pointer;transition:.12s;position:relative;flex:0 0 auto}
+  .auth-chip{width:280px;flex:0 0 auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:11px 13px;cursor:pointer;transition:.12s;position:relative;display:flex;flex-direction:column}
   .auth-chip:hover{border-color:var(--accent);transform:translateY(-1px)}
-  .auth-chip .nm{font-weight:650;font-size:13.5px;margin-bottom:3px;padding-right:14px}
-  .auth-chip .st{font-size:11px;color:var(--muted)}
+  .auth-chip .nm{font-weight:650;font-size:13.5px;margin-bottom:2px;padding-right:14px}
+  .auth-chip .st{font-size:11px;color:var(--muted);margin-bottom:6px}
   .auth-chip .st.playing{color:var(--accent2)}
-  .auth-chip .del{position:absolute;top:6px;right:7px;font-size:12px}
+  .auth-chip .tx{font-size:12px;line-height:1.45;color:var(--text);max-height:140px;
+    overflow-y:auto;white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--line);padding-top:6px}
+  .auth-chip .del{position:absolute;top:6px;right:7px;font-size:12px;z-index:2}
   .auth-add{min-width:150px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
     border:1px dashed var(--line);border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;font-size:13px}
   .auth-add:hover{border-color:var(--accent);color:var(--accent)}
@@ -177,6 +179,7 @@
   .reader-head .who{color:var(--muted);font-size:13px;margin-top:4px}
   .reader-body{padding:22px 26px;overflow:auto;line-height:1.7;font-size:15px;white-space:pre-wrap;word-break:break-word}
   .reader-body.empty{color:var(--muted);font-style:italic}
+  .reader-body.pdf{padding:0;overflow:hidden}
   .reader-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
   .reader embed,.reader iframe{width:100%;height:70vh;border:none;border-radius:10px;background:#fff}
   .x-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
@@ -424,8 +427,11 @@ function renderAuthorsBar(root){
     const chip = el('div','auth-chip');
     chip.innerHTML = `<button class="del" title="Удалить">✕</button>
       <div class="nm"></div>
-      <div class="st ${n?'playing':''}">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>`;
+      <div class="st ${n?'playing':''}">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>
+      <div class="tx"></div>`;
     chip.querySelector('.nm').textContent = r.author;
+    chip.querySelector('.tx').textContent = preview(r.text, r);
+    chip.querySelector('.tx').onclick = (e)=>e.stopPropagation(); // прокрутка не выбирает
     chip.querySelector('.del').onclick = (e)=>{ e.stopPropagation();
       if(confirm('Удалить исходный текст «'+r.author+'» и все его ветки?')) dataLayer.remove(r.id); };
     chip.onclick = ()=>{ state.selected = r.id; render(); };
@@ -505,6 +511,9 @@ function nextRoundInfo(root, chain){
 
 // текст для карточки — полный, прокручивается в окне превью
 function preview(text, item){
+  // PDF показываем как оригинал в витрине, а не кривой извлечённый текст
+  if(item && (item.fileType||'').toLowerCase()==='pdf')
+    return '📄 PDF-документ. Нажмите «Читать», чтобы открыть оригинал.';
   const t = (text||'').trim();
   if(t) return t;
   if(item && item.fileName) return '📎 '+item.fileName;
@@ -552,13 +561,17 @@ function openReader(item){
   const title = isRoot ? esc(item.title||item.author) : ('Ответ — '+esc(item.toName));
   const pdfUrl = (item.fileType||'').toLowerCase()==='pdf' ? (item.fileUrl||item.fileData) : null;
   const text = item.text || '';
+  // для PDF показываем сам документ (встроенный просмотр), а не извлечённый текст
+  const bodyHtml = pdfUrl
+    ? `<div class="reader-body pdf"><embed src="${pdfUrl}#view=FitH" type="application/pdf"></div>`
+    : `<div class="reader-body ${text?'':'empty'}">${ text ? esc(text) : 'Текст недоступен для предпросмотра — скачайте оригинал.' }</div>`;
   modal.className = 'reader';
   modal.innerHTML = `
     <div class="reader-head">
       <div class="ti"><h2>${title}</h2><div class="who">${who}</div></div>
       <button class="x-close" title="Закрыть">✕</button>
     </div>
-    <div class="reader-body ${text?'':'empty'}">${ text ? esc(text) : 'Текст недоступен для предпросмотра — скачайте оригинал.' }</div>
+    ${bodyHtml}
     <div class="reader-foot"></div>`;
   const foot = modal.querySelector('.reader-foot');
   if(isRoot){
