@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Игра в интерпретацию</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
+    --text:#e8eaf0; --muted:#9aa3b2; --accent:#6c8cff; --accent2:#36c2a8;
+    --root:#ffb84d; --chip:#262b36; --danger:#ff6b6b; --shadow:0 6px 22px rgba(0,0,0,.35);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%,#1a2030,#0f1115 60%);
+    color:var(--text);display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  }
+  header{
+    display:flex;align-items:center;gap:12px;padding:12px 18px;
+    flex-wrap:wrap;
+  }
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+  header .sub{color:var(--muted);font-size:12px}
+  .spacer{flex:1}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;background:var(--chip);
+    border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--text);
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .pill.cloud .dot{background:var(--accent2);box-shadow:0 0 8px var(--accent2)}
+  .pill.local .dot{background:var(--root)}
+  button{font-family:inherit}
+  .btn{
+    border:1px solid var(--line);background:var(--panel2);color:var(--text);
+    padding:8px 14px;border-radius:10px;cursor:pointer;font-size:13px;transition:.15s;
+  }
+  .btn:hover{border-color:var(--accent);background:#222838}
+  .btn.primary{background:linear-gradient(180deg,#7b97ff,#5d7bff);border-color:#5d7bff;color:#fff;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.07)}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  .btn.icon{padding:8px 11px}
+
+  /* Board */
+  .board{
+    flex:1;display:flex;gap:16px;padding:18px;overflow-x:auto;overflow-y:hidden;align-items:flex-start;
+  }
+  .col{
+    width:330px;min-width:330px;max-height:100%;display:flex;flex-direction:column;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  }
+  .col.roots{border-color:#3a3320}
+  .col-head{
+    padding:14px 14px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;
+  }
+  .col-head .title{font-weight:650;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .col-head .meta{color:var(--muted);font-size:12px;margin-top:4px}
+  .pair{display:inline-flex;align-items:center;gap:6px}
+  .name-chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px}
+  .arrow{color:var(--muted)}
+  .col-body{padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .col-foot{padding:10px 12px;border-top:1px solid var(--line)}
+
+  .card{
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;
+    position:relative;animation:pop .18s ease;
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .card.root{border-left:3px solid var(--root)}
+  .card .ctop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .round-badge{
+    font-size:11px;font-weight:700;color:#0f1115;background:var(--accent);border-radius:6px;padding:2px 7px;
+  }
+  .round-badge.odd{background:var(--accent2)}
+  .card .author{font-size:12px;color:var(--muted)}
+  .card .author b{color:var(--text)}
+  .card .text{font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .card .text.clamped{max-height:160px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent)}
+  .card .expand{font-size:12px;color:var(--accent);cursor:pointer;margin-top:6px;display:inline-block}
+  .card .ttl{font-weight:650;font-size:14px;margin-bottom:6px}
+  .card .del{position:absolute;top:8px;right:8px;color:var(--muted);background:none;border:none;cursor:pointer;font-size:14px;opacity:.5}
+  .card .del:hover{opacity:1;color:var(--danger)}
+
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:24px 8px}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(6,8,12,.6);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .overlay.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
+  .modal h2{margin:0;padding:18px 20px;font-size:16px;border-bottom:1px solid var(--line)}
+  .modal .content{padding:20px}
+  .field{margin-bottom:14px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input,textarea{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;
+  }
+  input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  textarea{min-height:130px}
+  .modal .actions{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .hint code{background:var(--chip);padding:1px 5px;border-radius:5px}
+  .tabs{display:flex;gap:6px;margin-bottom:14px}
+  .tab{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-size:13px}
+  .tab.active{border-color:var(--accent);color:var(--accent)}
+  details{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+  summary{cursor:pointer;font-size:13px}
+  .ol{font-size:13px;line-height:1.6;color:var(--muted);padding-left:18px}
+  .ol code{background:var(--chip);padding:1px 5px;border-radius:5px;color:var(--text)}
+  ::-webkit-scrollbar{height:10px;width:10px}
+  ::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:10px}
+
+  /* История переписки в окне ответа */
+  .thread{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;
+    padding:10px;background:#12151c;display:flex;flex-direction:column;gap:10px}
+  .thread-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .thread-item.root{border-left:3px solid var(--root)}
+  .th-meta{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .th-tag{font-size:10px;font-weight:700;color:#0f1115;background:var(--accent);border-radius:5px;padding:2px 6px}
+  .th-tag.odd{background:var(--accent2)}
+  .th-tag.root{background:var(--root)}
+  .th-text{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎭 Игра в интерпретацию</h1>
+  <span class="sub" id="roomLabel"></span>
+  <div class="spacer"></div>
+  <span class="pill" id="modePill"><span class="dot"></span><span id="modeText">…</span></span>
+  <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
+  <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
+  <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
+</header>
+
+<div class="board" id="board"></div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script type="module">
+/* ============================================================
+   Игра в интерпретацию — один файл, два режима хранения:
+   • Локальный (localStorage) — для теста, работает сразу
+   • Облачный (Firebase Firestore) — общий доступ в реальном времени
+   ============================================================ */
+
+const LS = {
+  me: 'ig_me',
+  fb: 'ig_fb_config',
+  room: 'ig_room',
+  local: (room) => 'ig_data_' + room,
+};
+
+let state = {
+  me: localStorage.getItem(LS.me) || '',
+  room: localStorage.getItem(LS.room) || 'общая-комната',
+  mode: 'local',     // 'local' | 'cloud'
+  posts: [],         // {id,type,...}
+  expanded: new Set(),
+  user: null,        // объект пользователя Google (в облачном режиме)
+};
+
+/* ---------- Слой данных (абстракция над local/cloud) ---------- */
+let dataLayer = null;
+
+function makeLocalLayer(room){
+  const key = LS.local(room);
+  function read(){ try{return JSON.parse(localStorage.getItem(key))||[]}catch(e){return []} }
+  function write(arr){ localStorage.setItem(key, JSON.stringify(arr)); }
+  return {
+    mode:'local',
+    subscribe(cb){
+      cb(read());
+      const h = (e)=>{ if(e.key===key) cb(read()); };
+      window.addEventListener('storage', h);
+      this._h = h;
+      // также локальный bus для той же вкладки
+      this._bus = ()=>cb(read());
+    },
+    async add(post){
+      const arr = read();
+      post.id = post.id || ('p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));
+      post.createdAt = post.createdAt || Date.now();
+      arr.push(post); write(arr); if(this._bus) this._bus();
+    },
+    async remove(id){
+      const arr = read().filter(p=>p.id!==id && p.rootId!==id);
+      write(arr); if(this._bus) this._bus();
+    },
+    exportAll(){ return read(); },
+    async importAll(arr){ write(arr); if(this._bus) this._bus(); },
+  };
+}
+
+async function makeCloudLayer(room, cfg){
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+  const { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, getDocs, query, writeBatch }
+    = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+  const app = initializeApp(cfg, 'ig-'+Math.random().toString(36).slice(2,6));
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  const colRef = collection(db, 'ig_rooms', room, 'posts');
+  return {
+    mode:'cloud',
+    // --- авторизация Google ---
+    auth: {
+      onChange(cb){ onAuthStateChanged(auth, cb); },
+      async signIn(){
+        try{ await signInWithPopup(auth, provider); }
+        catch(e){
+          if(e.code==='auth/operation-not-supported-in-this-environment' || e.code==='auth/popup-blocked'){
+            alert('Вход Google не работает при открытии файла напрямую (file://) или при блокировке всплывающих окон.\n\nОткройте страницу по адресу http(s) — через Firebase Hosting, GitHub Pages или локальный сервер.');
+          } else if(e.code==='auth/unauthorized-domain'){
+            alert('Домен не разрешён. В Firebase → Authentication → Settings → Authorized domains добавьте домен, с которого открыта страница.');
+          } else { alert('Ошибка входа: '+e.message); }
+        }
+      },
+      async signOut(){ await signOut(auth); },
+      current(){ return auth.currentUser; },
+    },
+    subscribe(cb){
+      this._unsub = onSnapshot(colRef, (snap)=>{
+        const arr = []; snap.forEach(d=>arr.push({ ...d.data(), id:d.id }));
+        cb(arr);
+      }, (err)=>{ console.error(err); alert('Ошибка облака: '+err.message); });
+    },
+    async add(post){
+      post.createdAt = post.createdAt || Date.now();
+      await addDoc(colRef, post);
+    },
+    async remove(id){
+      // удаляем сам пост и (если корень) его ответы
+      const snap = await getDocs(colRef);
+      const batch = writeBatch(db);
+      snap.forEach(d=>{ const v=d.data(); if(d.id===id || v.rootId===id) batch.delete(doc(colRef,d.id)); });
+      await batch.commit();
+    },
+    async exportAll(){ const snap=await getDocs(colRef); const a=[]; snap.forEach(d=>a.push({...d.data(),id:d.id})); return a; },
+    async importAll(arr){ for(const p of arr){ const {id,...rest}=p; await addDoc(colRef, rest); } },
+  };
+}
+
+/* ---------- Инициализация слоя ---------- */
+async function initLayer(){
+  const cfgRaw = localStorage.getItem(LS.fb);
+  if(cfgRaw){
+    try{
+      const cfg = JSON.parse(cfgRaw);
+      dataLayer = await makeCloudLayer(state.room, cfg);
+      state.mode = 'cloud';
+    }catch(e){
+      console.error('Firebase config error', e);
+      alert('Не удалось подключить облако, работаю локально. ('+e.message+')');
+      dataLayer = makeLocalLayer(state.room);
+      state.mode = 'local';
+    }
+  } else {
+    dataLayer = makeLocalLayer(state.room);
+    state.mode = 'local';
+  }
+  dataLayer.subscribe((posts)=>{ state.posts = posts; render(); });
+  // авторизация Google (только облачный режим)
+  if(dataLayer.auth){
+    dataLayer.auth.onChange((user)=>{
+      state.user = user;
+      if(user){ state.me = user.displayName || user.email; }
+      renderChrome();
+    });
+  }
+  renderChrome();
+}
+
+/* ---------- Модель: колонки-цепочки ---------- */
+// root: {type:'root', author, title, text}
+// reply:{type:'reply', rootId, responder, round, author, text}
+// Колонка = rootId + responder. Круг 1 пишет responder, круг 2 — автор корня, и т.д.
+
+function roots(){ return state.posts.filter(p=>p.type==='root').sort((a,b)=>a.createdAt-b.createdAt); }
+function repliesOf(rootId){ return state.posts.filter(p=>p.type==='reply'&&p.rootId===rootId); }
+
+function chainsForRoot(rootId){
+  const map = new Map(); // responder -> replies[]
+  for(const r of repliesOf(rootId)){
+    if(!map.has(r.responder)) map.set(r.responder, []);
+    map.get(r.responder).push(r);
+  }
+  const out = [];
+  for(const [responder, arr] of map){
+    arr.sort((a,b)=>a.round-b.round);
+    out.push({responder, replies:arr});
+  }
+  out.sort((a,b)=> (a.replies[0]?.createdAt||0)-(b.replies[0]?.createdAt||0));
+  return out;
+}
+
+/* ---------- Рендер ---------- */
+const board = document.getElementById('board');
+
+function render(){
+  board.innerHTML = '';
+  // колонка исходных текстов
+  board.appendChild(rootsColumn());
+  // по колонке на каждую цепочку
+  for(const root of roots()){
+    for(const chain of chainsForRoot(root.id)){
+      board.appendChild(chainColumn(root, chain));
+    }
+  }
+}
+
+function rootsColumn(){
+  const col = el('div','col roots');
+  col.innerHTML = `<div class="col-head"><div class="title">📜 Исходные тексты</div>
+    <div class="meta">Опубликуйте текст — другие смогут начать ветку-ответ</div></div>`;
+  const body = el('div','col-body');
+  const rs = roots();
+  if(!rs.length){ body.appendChild(elText('empty','Пока пусто. Нажмите «＋ Исходный текст».')); }
+  for(const r of rs){
+    const card = el('div','card root');
+    card.innerHTML = `
+      <button class="del" title="Удалить">✕</button>
+      <div class="ttl"></div>
+      <div class="author">Автор: <b></b></div>
+      <div class="text"></div>`;
+    card.querySelector('.ttl').textContent = r.title || '(без названия)';
+    card.querySelector('.author b').textContent = r.author;
+    fillText(card.querySelector('.text'), r.id, r.text);
+    card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить исходный текст и все его ветки?')) dataLayer.remove(r.id); };
+    const foot = el('div','');foot.style.marginTop='8px';
+    const btn = el('button','btn sm primary'); btn.textContent='💬 Начать ветку-ответ';
+    btn.onclick = ()=>openReplyModal(r, null);
+    foot.appendChild(btn); card.appendChild(foot);
+    body.appendChild(card);
+  }
+  col.appendChild(body);
+  const foot = el('div','col-foot');
+  const add = el('button','btn sm'); add.textContent='＋ Исходный текст'; add.style.width='100%';
+  add.onclick = openRootModal; foot.appendChild(add);
+  col.appendChild(foot);
+  return col;
+}
+
+function chainColumn(root, chain){
+  const col = el('div','col');
+  const head = el('div','col-head');
+  head.innerHTML = `<div class="title"><span class="pair">
+      <span class="name-chip">${esc(root.author)}</span>
+      <span class="arrow">⇄</span>
+      <span class="name-chip">${esc(chain.responder)}</span></span></div>
+    <div class="meta">по тексту: «${esc(root.title||'без названия')}» · кругов: ${chain.replies.length}</div>`;
+  col.appendChild(head);
+  const body = el('div','col-body');
+  for(const rep of chain.replies){
+    const card = el('div','card');
+    const odd = rep.round % 2 === 1;
+    card.innerHTML = `<button class="del" title="Удалить">✕</button>
+      <div class="ctop"><span class="round-badge ${odd?'odd':''}">КРУГ ${rep.round}</span>
+      <span class="author">от <b>${esc(rep.author)}</b> → ${esc(rep.toName)}</span></div>
+      <div class="text"></div>`;
+    fillText(card.querySelector('.text'), rep.id, rep.text);
+    card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить этот ответ (круг '+rep.round+')?')) dataLayer.remove(rep.id); };
+    body.appendChild(card);
+  }
+  col.appendChild(body);
+  const foot = el('div','col-foot');
+  const next = nextRoundInfo(root, chain);
+  const btn = el('button','btn sm primary'); btn.style.width='100%';
+  btn.textContent = `＋ Ответить (круг ${next.round}, пишет ${next.author})`;
+  btn.onclick = ()=>openReplyModal(root, chain);
+  foot.appendChild(btn);
+  col.appendChild(foot);
+  return col;
+}
+
+function nextRoundInfo(root, chain){
+  const round = (chain && chain.replies.length) ? chain.replies[chain.replies.length-1].round + 1 : 1;
+  // нечётный круг — пишет respondent, чётный — автор корня
+  const author = round % 2 === 1 ? (chain ? chain.responder : '') : root.author;
+  const toName = round % 2 === 1 ? root.author : (chain ? chain.responder : '');
+  return {round, author, toName};
+}
+
+function fillText(node, id, text){
+  const long = (text||'').length > 320;
+  node.textContent = text || '';
+  if(long && !state.expanded.has(id)){
+    node.classList.add('clamped');
+    const ex = el('span','expand'); ex.textContent='Показать полностью ▾';
+    ex.onclick = ()=>{ state.expanded.add(id); render(); };
+    node.after(ex);
+  } else if(long){
+    const ex = el('span','expand'); ex.textContent='Свернуть ▴';
+    ex.onclick = ()=>{ state.expanded.delete(id); render(); };
+    node.after(ex);
+  }
+}
+
+/* ---------- Верхняя панель ---------- */
+function renderChrome(){
+  document.getElementById('roomLabel').textContent = '· комната: ' + state.room;
+  const mp = document.getElementById('modePill');
+  const mt = document.getElementById('modeText');
+  mp.className = 'pill ' + state.mode;
+  mt.textContent = state.mode === 'cloud' ? 'Облако (общий доступ)' : 'Локально (этот компьютер)';
+  const me = document.getElementById('meText');
+  const pill = document.getElementById('mePill');
+  if(state.mode === 'cloud'){
+    if(state.user){ me.textContent = state.me; pill.title = 'Вы вошли как '+(state.user.email||''); }
+    else { me.textContent = 'Войти через Google'; pill.title = 'Войти через Google'; }
+  } else {
+    me.textContent = state.me || 'выбрать имя'; pill.title = 'Я';
+  }
+}
+
+// Идентификация перед публикацией: облако → вход Google; локально → имя.
+function requireIdentity(cb){
+  if(state.mode === 'cloud' && dataLayer.auth){
+    if(state.user){ cb(); }
+    else { dataLayer.auth.signIn(); }   // после входа onChange обновит состояние; действие повторить
+    return;
+  }
+  requireName(cb);
+}
+
+/* ---------- Модальные окна ---------- */
+const overlay = document.getElementById('overlay');
+const modal = document.getElementById('modal');
+function closeModal(){ overlay.classList.remove('show'); modal.innerHTML=''; }
+overlay.addEventListener('click',(e)=>{ if(e.target===overlay) closeModal(); });
+
+function requireName(cb){
+  if(state.me){ cb(); return; }
+  openMeModal(cb);
+}
+
+function openMeModal(after){
+  modal.innerHTML = `<h2>Как вас зовут?</h2>
+    <div class="content"><div class="field">
+      <label>ФИО / имя участника</label>
+      <input id="meInput" placeholder="Например: Иван Петров" value="${esc(state.me)}">
+    </div><div class="hint">Имя используется как автор ваших текстов и ответов.</div></div>
+    <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
+    <button class="btn primary" id="save">Сохранить</button></div>`;
+  overlay.classList.add('show');
+  const inp = modal.querySelector('#meInput'); inp.focus();
+  modal.querySelector('#cancel').onclick = closeModal;
+  modal.querySelector('#save').onclick = ()=>{
+    const v = inp.value.trim(); if(!v) return inp.focus();
+    state.me = v; localStorage.setItem(LS.me, v); renderChrome(); closeModal();
+    if(after) after();
+  };
+}
+
+function openRootModal(){
+  requireIdentity(()=>{
+    modal.innerHTML = `<h2>📜 Новый исходный текст</h2>
+      <div class="content">
+        <div class="field"><label>Название</label><input id="ttl" placeholder="Заголовок текста"></div>
+        <div class="field"><label>Текст</label><textarea id="txt" placeholder="Ваш исходный текст для интерпретации…"></textarea></div>
+        <div class="hint">Автор: <b>${esc(state.me)}</b></div>
+      </div>
+      <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
+      <button class="btn primary" id="save">Опубликовать</button></div>`;
+    overlay.classList.add('show'); modal.querySelector('#ttl').focus();
+    modal.querySelector('#cancel').onclick = closeModal;
+    modal.querySelector('#save').onclick = ()=>{
+      const title = modal.querySelector('#ttl').value.trim();
+      const text = modal.querySelector('#txt').value.trim();
+      if(!text) return modal.querySelector('#txt').focus();
+      dataLayer.add({type:'root', author:state.me, title, text, ...ownerFields()});
+      closeModal();
+    };
+  });
+}
+
+function historyHTML(root, chain){
+  // исходный текст + все предыдущие круги — чтобы отвечать в контексте
+  let h = `<div class="thread">
+    <div class="thread-item root">
+      <div class="th-meta"><span class="th-tag root">ИСХОДНЫЙ</span> ${esc(root.author)}${root.title?' · «'+esc(root.title)+'»':''}</div>
+      <div class="th-text">${esc(root.text)}</div>
+    </div>`;
+  if(chain){
+    for(const r of chain.replies){
+      const odd = r.round%2===1;
+      h += `<div class="thread-item">
+        <div class="th-meta"><span class="th-tag ${odd?'odd':''}">КРУГ ${r.round}</span> ${esc(r.author)} → ${esc(r.toName)}</div>
+        <div class="th-text">${esc(r.text)}</div>
+      </div>`;
+    }
+  }
+  h += `</div>`;
+  return h;
+}
+
+function openReplyModal(root, chain){
+  requireIdentity(()=>{
+    const isNew = !chain;
+    // респондент: для новой ветки — текущий пользователь; для существующей — закреплён
+    let responder = chain ? chain.responder : state.me;
+    const info = nextRoundInfo(root, chain || {responder, replies:[]});
+    // в существующей ветке автор круга определяется автоматически и не меняется
+    const lockedAuthor = info.author;
+    modal.innerHTML = `<h2>💬 Ответ — круг ${info.round}</h2>
+      <div class="content">
+        <div class="hint" style="margin-bottom:10px">
+          ${isNew
+            ? 'Вы начинаете <b>новую ветку</b> от исходного текста (круг 1).'
+            : `Ветка <b>${esc(root.author)} ⇄ ${esc(responder)}</b> — пишет <b>${esc(lockedAuthor)}</b>.`}
+        </div>
+        <label>Предыдущие тексты</label>
+        ${historyHTML(root, chain)}
+        ${isNew ? `<div class="field" style="margin-top:14px"><label>Кто отвечает (вы — респондент)</label>
+          <input id="resp" value="${esc(responder)}"></div>` : ''}
+        <div class="field" style="margin-top:14px"><label>Текст ответа (круг ${info.round}, автор ${esc(lockedAuthor)})</label>
+          <textarea id="txt" placeholder="Ваша интерпретация / ответ…"></textarea></div>
+      </div>
+      <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
+      <button class="btn primary" id="save">Отправить</button></div>`;
+    overlay.classList.add('show'); modal.querySelector('#txt').focus();
+    modal.querySelector('#cancel').onclick = closeModal;
+    modal.querySelector('#save').onclick = ()=>{
+      const text = modal.querySelector('#txt').value.trim();
+      if(!text) return modal.querySelector('#txt').focus();
+      const respVal = isNew ? (modal.querySelector('#resp').value.trim()||state.me) : responder;
+      const round = isNew ? 1 : info.round;
+      // автор круга всегда вычисляется автоматически: ветка остаётся между теми же двумя
+      const authVal = round % 2 === 1 ? respVal : root.author;
+      const toName  = round % 2 === 1 ? root.author : respVal;
+      dataLayer.add({type:'reply', rootId:root.id, responder:respVal, round, author:authVal, toName, text, ...ownerFields()});
+      closeModal();
+    };
+  });
+}
+
+function openSettings(){
+  const cfg = localStorage.getItem(LS.fb) || '';
+  modal.innerHTML = `<h2>⚙️ Настройки</h2>
+    <div class="content">
+      <div class="tabs">
+        <div class="tab active" data-t="general">Общие</div>
+        <div class="tab" data-t="cloud">Облако (общий доступ)</div>
+      </div>
+
+      <div class="pane" data-p="general">
+        <div class="field"><label>Моё имя (ФИО)</label><input id="sName" value="${esc(state.me)}"></div>
+        <div class="field"><label>Название комнаты (общая для всех участников)</label>
+          <input id="sRoom" value="${esc(state.room)}"></div>
+        <div class="hint">Все участники должны указать <b>одно и то же название комнаты</b> и один и тот же конфиг облака.</div>
+        <div class="field" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn sm" id="exp">⬇ Экспорт (JSON)</button>
+          <button class="btn sm" id="imp">⬆ Импорт (JSON)</button>
+          <input type="file" id="impFile" accept="application/json" style="display:none">
+        </div>
+      </div>
+
+      <div class="pane" data-p="cloud" style="display:none">
+        <div class="hint" style="margin-bottom:10px">
+          Для общего доступа в реальном времени вставьте конфиг Firebase. Без него работает локальный режим.
+        </div>
+        <div class="field"><label>Firebase config (объект из firebaseConfig)</label>
+          <textarea id="sFb" placeholder='{"apiKey":"…","authDomain":"…","projectId":"…", …}'>${esc(cfg)}</textarea></div>
+        <details><summary>📘 Как настроить (10 минут)</summary>
+          <ol class="ol">
+            <li>Откройте <code>console.firebase.google.com</code> → <b>Add project</b>.</li>
+            <li><b>Build → Firestore Database → Create database</b> (режим <b>test mode</b> для начала).</li>
+            <li><b>Build → Authentication → Get started → Sign-in method → Google → Enable</b> (для входа через Google-почту).</li>
+            <li><b>Project settings (⚙)</b> → <b>Your apps</b> → значок <b>&lt;/&gt;</b> (Web) → зарегистрируйте приложение.</li>
+            <li>Скопируйте объект <code>firebaseConfig = {…}</code> и вставьте сюда только <b>{…}</b>.</li>
+            <li>Откройте страницу по <b>http(s)</b> (Firebase Hosting / GitHub Pages / локальный сервер) — вход Google не работает из <code>file://</code>.</li>
+            <li>В <b>Authentication → Settings → Authorized domains</b> добавьте домен, с которого открываете страницу.</li>
+            <li>Раздайте участникам тот же конфиг и то же название комнаты.</li>
+          </ol>
+          <div class="hint" style="margin-top:8px">⚠️ test mode открыт для всех на 30 дней. Для постоянной игры настройте правила Firestore (можно ограничить запись только вошедшим: <code>allow write: if request.auth != null;</code>).</div>
+        </details>
+      </div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
+    <button class="btn primary" id="save">Сохранить и применить</button></div>`;
+  overlay.classList.add('show');
+  modal.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    modal.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    modal.querySelectorAll('.pane').forEach(p=>p.style.display=p.dataset.p===t.dataset.t?'':'none');
+  });
+  modal.querySelector('#cancel').onclick = closeModal;
+  // export/import
+  modal.querySelector('#exp').onclick = async ()=>{
+    const data = await dataLayer.exportAll();
+    const blob = new Blob([JSON.stringify({room:state.room,posts:data},null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download = 'игра-'+state.room+'.json'; a.click();
+  };
+  modal.querySelector('#imp').onclick = ()=> modal.querySelector('#impFile').click();
+  modal.querySelector('#impFile').onchange = (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = async ()=>{ try{
+      const parsed = JSON.parse(rd.result);
+      const arr = Array.isArray(parsed) ? parsed : parsed.posts;
+      if(!Array.isArray(arr)) throw new Error('Нет массива posts');
+      if(confirm('Импортировать '+arr.length+' записей в комнату?')){ await dataLayer.importAll(arr); alert('Импортировано.'); }
+    }catch(err){ alert('Ошибка импорта: '+err.message); } };
+    rd.readAsText(f);
+  };
+  modal.querySelector('#save').onclick = ()=>{
+    const name = modal.querySelector('#sName').value.trim();
+    const room = modal.querySelector('#sRoom').value.trim() || 'общая-комната';
+    const fb = modal.querySelector('#sFb').value.trim();
+    if(name){ state.me=name; localStorage.setItem(LS.me,name); }
+    let needReload = (room!==state.room) || (fb!==(localStorage.getItem(LS.fb)||''));
+    state.room = room; localStorage.setItem(LS.room, room);
+    if(fb){ try{ JSON.parse(fb); localStorage.setItem(LS.fb, fb); }
+      catch(e){ alert('Конфиг должен быть корректным JSON: '+e.message); return; } }
+    else { localStorage.removeItem(LS.fb); }
+    closeModal();
+    if(needReload){ location.reload(); } else { renderChrome(); }
+  };
+}
+
+/* ---------- утилиты ---------- */
+function ownerFields(){
+  return state.user ? {authorUid:state.user.uid, authorEmail:state.user.email} : {};
+}
+function el(tag,cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
+function elText(cls,txt){ const e=el('div',cls); e.textContent=txt; return e; }
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function openAuthModal(){
+  const u = state.user;
+  modal.innerHTML = `<h2>👤 Аккаунт</h2>
+    <div class="content">
+      ${u ? `<div class="hint">Вы вошли как <b>${esc(u.displayName||'')}</b><br>${esc(u.email||'')}</div>`
+          : `<div class="hint">Войдите через Google — ваше имя будет автором текстов, а записи сохранятся в облаке.</div>`}
+      <div class="field" style="margin-top:14px">
+        ${u ? `<button class="btn" id="out" style="width:100%">Выйти</button>`
+            : `<button class="btn primary" id="in" style="width:100%">Войти через Google</button>`}
+      </div>
+      <div class="hint">⚠️ Вход Google работает только при открытии страницы по http(s) (хостинг или локальный сервер), не из файла <code>file://</code>.</div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="cancel">Закрыть</button></div>`;
+  overlay.classList.add('show');
+  modal.querySelector('#cancel').onclick = closeModal;
+  if(u){ modal.querySelector('#out').onclick = async ()=>{ await dataLayer.auth.signOut(); state.me=''; closeModal(); }; }
+  else { modal.querySelector('#in').onclick = async ()=>{ closeModal(); await dataLayer.auth.signIn(); }; }
+}
+
+function openIdentityUI(){
+  if(state.mode === 'cloud' && dataLayer && dataLayer.auth){ openAuthModal(); }
+  else { openMeModal(); }
+}
+
+/* ---------- кнопки ---------- */
+document.getElementById('newRootBtn').onclick = openRootModal;
+document.getElementById('settingsBtn').onclick = openSettings;
+document.getElementById('mePill').onclick = openIdentityUI;
+
+/* ---------- старт ---------- */
+initLayer().then(()=>{
+  // в локальном режиме сразу спросим имя; в облачном имя возьмётся из Google при входе
+  if(state.mode === 'local' && !state.me){ openMeModal(); }
+});
+</script>
+</body>
+</html>
