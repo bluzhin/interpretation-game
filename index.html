@@ -9,18 +9,26 @@
     --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
     --text:#e8eaf0; --muted:#9aa3b2; --accent:#6c8cff; --accent2:#36c2a8;
     --root:#ffb84d; --chip:#262b36; --danger:#ff6b6b; --shadow:0 6px 22px rgba(0,0,0,.35);
-    --radius:14px;
+    --radius:14px; --bgGrad:radial-gradient(1200px 600px at 70% -10%,#1a2030,#0f1115 60%);
+    --headBg:rgba(20,23,30,.7); --selected:#23304f;
+  }
+  body.light{
+    --bg:#f4f6fb; --panel:#ffffff; --panel2:#f7f9fc; --line:#dfe4ee;
+    --text:#1b2030; --muted:#697086; --accent:#3b5bdb; --accent2:#0ca678;
+    --root:#e8950c; --chip:#eef1f7; --danger:#e03131; --shadow:0 6px 22px rgba(30,40,70,.12);
+    --bgGrad:radial-gradient(1200px 600px at 70% -10%,#eaf0ff,#f4f6fb 60%);
+    --headBg:rgba(255,255,255,.8); --selected:#dbe6ff;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
-    background:radial-gradient(1200px 600px at 70% -10%,#1a2030,#0f1115 60%);
+    background:var(--bgGrad);
     color:var(--text);display:flex;flex-direction:column;height:100vh;overflow:hidden;
   }
   header{
     display:flex;align-items:center;gap:12px;padding:12px 18px;
-    border-bottom:1px solid var(--line);background:rgba(20,23,30,.7);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);background:var(--headBg);backdrop-filter:blur(8px);
     flex-wrap:wrap;
   }
   header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
@@ -71,6 +79,10 @@
   }
   @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .card.root{border-left:3px solid var(--root)}
+  .author-card{cursor:pointer;transition:.12s}
+  .author-card:hover{border-color:var(--accent)}
+  .author-card.sel{border-color:var(--accent);background:var(--selected)}
+  .author-card .ttl{font-weight:650;font-size:14px}
   .card .ctop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
   .round-badge{
     font-size:11px;font-weight:700;color:#0f1115;background:var(--accent);border-radius:6px;padding:2px 7px;
@@ -159,6 +171,7 @@
   <div class="spacer"></div>
   <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
   <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
+  <button class="btn icon" id="themeBtn" title="Тема">🌓</button>
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
 </header>
 
@@ -183,7 +196,9 @@ const LS = {
   me: 'ig_me',
   fb: 'ig_fb_config',
   room: 'ig_room',
-  local: (room) => 'ig_data_' + room,
+  theme: 'ig_theme',
+  // версия в ключе: при обновлении исходных данных (seed) переимпорт произойдёт автоматически
+  local: (room) => 'ig_data_v2_' + room,
 };
 
 let state = {
@@ -193,6 +208,7 @@ let state = {
   posts: [],         // {id,type,...}
   expanded: new Set(),
   user: null,        // объект пользователя Google (в облачном режиме)
+  selected: null,    // выбранный автор (rootId)
 };
 
 /* ---------- Слой данных (абстракция над local/cloud) ---------- */
@@ -344,46 +360,72 @@ const board = document.getElementById('board');
 
 function render(){
   board.innerHTML = '';
-  // колонка исходных текстов
-  board.appendChild(rootsColumn());
-  // по колонке на каждую цепочку
-  for(const root of roots()){
+  // 1) колонка выбора автора
+  board.appendChild(authorsColumn());
+  // 2) выбранный автор: исходный текст первой карточкой + ветки игроков
+  const root = state.selected ? roots().find(r=>r.id===state.selected) : null;
+  if(root){
+    board.appendChild(initialColumn(root));
     for(const chain of chainsForRoot(root.id)){
       board.appendChild(chainColumn(root, chain));
     }
+  } else {
+    const hint = el('div','col');
+    hint.innerHTML = `<div class="col-body"><div class="empty">← Выберите автора слева, чтобы прочитать его текст и сделать ход</div></div>`;
+    board.appendChild(hint);
   }
 }
 
-function rootsColumn(){
+// Левая колонка: список авторов (выбор ветки)
+function authorsColumn(){
   const col = el('div','col roots');
-  col.innerHTML = `<div class="col-head"><div class="title">📜 Исходные тексты</div>
-    <div class="meta">Опубликуйте текст — другие смогут начать ветку-ответ</div></div>`;
+  col.innerHTML = `<div class="col-head"><div class="title">👥 Авторы</div>
+    <div class="meta">Выберите, с чьим текстом играть</div></div>`;
   const body = el('div','col-body');
   const rs = roots();
   if(!rs.length){ body.appendChild(elText('empty','Пока пусто. Нажмите «＋ Исходный текст».')); }
   for(const r of rs){
-    const card = el('div','card root');
-    card.innerHTML = `
-      <button class="del" title="Удалить">✕</button>
+    const n = chainsForRoot(r.id).length;
+    const card = el('div','card author-card'+(state.selected===r.id?' sel':''));
+    card.innerHTML = `<button class="del" title="Удалить">✕</button>
       <div class="ttl"></div>
-      <div class="author">Автор: <b></b></div>
-      <div class="text preview"></div>`;
-    card.querySelector('.ttl').textContent = r.title || '(без названия)';
-    card.querySelector('.author b').textContent = r.author;
-    card.querySelector('.text').textContent = preview(r.text, r);
-    card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить исходный текст и все его ветки?')) dataLayer.remove(r.id); };
-    card.appendChild(fileTag(r));
-    card.appendChild(cardActions(r, '📖 Читать текст'));
-    const foot = el('div','');foot.style.marginTop='8px';
-    const btn = el('button','btn sm primary'); btn.textContent='💬 Начать ветку-ответ';
-    btn.onclick = ()=>openReplyModal(r, null);
-    foot.appendChild(btn); card.appendChild(foot);
+      <div class="file-tag" style="margin-top:2px">${ n ? '🎮 играют: '+n : 'ходов ещё нет'}</div>`;
+    card.querySelector('.ttl').textContent = r.author;
+    card.querySelector('.del').onclick = (e)=>{ e.stopPropagation();
+      if(confirm('Удалить исходный текст «'+r.author+'» и все его ветки?')){ if(state.selected===r.id) state.selected=null; dataLayer.remove(r.id);} };
+    card.onclick = ()=>{ state.selected = r.id; render(); };
     body.appendChild(card);
   }
   col.appendChild(body);
   const foot = el('div','col-foot');
   const add = el('button','btn sm'); add.textContent='＋ Исходный текст'; add.style.width='100%';
   add.onclick = openRootModal; foot.appendChild(add);
+  col.appendChild(foot);
+  return col;
+}
+
+// Колонка выбранного автора: исходный текст первой карточкой + «первый ход»
+function initialColumn(root){
+  const col = el('div','col');
+  col.innerHTML = `<div class="col-head"><div class="title">📜 Исходный текст · ${esc(root.author)}</div>
+    <div class="meta">Первый ход — прочитать и ответить автору</div></div>`;
+  const body = el('div','col-body');
+  const card = el('div','card root');
+  card.innerHTML = `<button class="del" title="Удалить">✕</button>
+    <div class="ttl"></div><div class="author">Автор: <b></b></div><div class="text preview"></div>`;
+  card.querySelector('.ttl').textContent = root.title || root.author;
+  card.querySelector('.author b').textContent = root.author;
+  card.querySelector('.text').textContent = preview(root.text, root);
+  card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить исходный текст и все его ветки?')){ state.selected=null; dataLayer.remove(root.id);} };
+  card.appendChild(fileTag(root));
+  card.appendChild(cardActions(root, '📖 Читать текст'));
+  body.appendChild(card);
+  col.appendChild(body);
+  const foot = el('div','col-foot');
+  const btn = el('button','btn sm primary'); btn.style.width='100%';
+  btn.textContent='💬 Сделать первый ход — ответить автору';
+  btn.onclick = ()=>openReplyModal(root, null);
+  foot.appendChild(btn);
   col.appendChild(foot);
   return col;
 }
@@ -795,16 +837,26 @@ function openIdentityUI(){
   else { openMeModal(); }
 }
 
+/* ---------- тема ---------- */
+function applyTheme(t){
+  document.body.classList.toggle('light', t==='light');
+  localStorage.setItem(LS.theme, t);
+}
+function toggleTheme(){
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+}
+applyTheme(localStorage.getItem(LS.theme) || 'dark');
+
 /* ---------- кнопки ---------- */
 document.getElementById('newRootBtn').onclick = openRootModal;
 document.getElementById('settingsBtn').onclick = openSettings;
+document.getElementById('themeBtn').onclick = toggleTheme;
 document.getElementById('mePill').onclick = openIdentityUI;
 
 /* ---------- старт ---------- */
-initLayer().then(()=>{
-  // в локальном режиме сразу спросим имя; в облачном имя возьмётся из Google при входе
-  if(state.mode === 'local' && !state.me){ openMeModal(); }
-});
+// Имя запоминается (localStorage) и больше не спрашивается на старте.
+// Спросим только когда участник впервые делает ход (requireIdentity).
+initLayer();
 </script>
 </body>
 </html>
