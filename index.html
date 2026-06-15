@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Игра в интерпретацию</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎭</text></svg>">
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
@@ -528,12 +529,13 @@ function openThreadReader(root, chain){
         <div class="who">основной текст → ходы по порядку (${chain.replies.length})</div></div>
       <div class="tools">
         <button class="x-close" id="fs" title="Развернуть на весь экран">⛶</button>
-        <button class="x-close" title="Закрыть">✕</button>
+        <button class="x-close" id="xclose" title="Закрыть">✕</button>
       </div>
     </div>
     <div class="reader-body"><div class="thread big">${blocks.join('')}</div></div>
     <div class="reader-foot"></div>`;
   modal.querySelector('#fs').onclick = ()=>modal.classList.toggle('full');
+  modal.querySelector('#xclose').onclick = closeReader;
   const foot = modal.querySelector('.reader-foot');
   const next = nextRoundInfo(root, chain);
   const ans = el('button','btn sm primary');
@@ -541,7 +543,6 @@ function openThreadReader(root, chain){
   ans.onclick = ()=>{ closeReader(); openReplyModal(root, chain); };
   const cl = el('button','btn sm ghost'); cl.textContent='Закрыть'; cl.onclick=closeReader;
   foot.appendChild(ans); foot.appendChild(cl);
-  modal.querySelector('.x-close').onclick = closeReader;
   overlay.classList.add('show');
 }
 function blockHTML(tag, cls, who, item){
@@ -625,12 +626,13 @@ function openReader(item){
       <div class="ti"><h2>${title}</h2><div class="who">${who}</div></div>
       <div class="tools">
         <button class="x-close" id="fs" title="Развернуть на весь экран">⛶</button>
-        <button class="x-close" title="Закрыть">✕</button>
+        <button class="x-close" id="xclose" title="Закрыть">✕</button>
       </div>
     </div>
     ${bodyHtml}
     <div class="reader-foot"></div>`;
   modal.querySelector('#fs').onclick = ()=>modal.classList.toggle('full');
+  modal.querySelector('#xclose').onclick = closeReader;
   const foot = modal.querySelector('.reader-foot');
   if(isRoot){
     const play = el('button','btn sm primary'); play.textContent='🎮 Начать игру — ответить автору';
@@ -647,7 +649,6 @@ function openReader(item){
     foot.appendChild(dl);
   }
   const cl = el('button','btn sm ghost'); cl.textContent='Закрыть'; cl.onclick=closeReader; foot.appendChild(cl);
-  modal.querySelector('.x-close').onclick = closeReader;
   overlay.classList.add('show');
 }
 function closeReader(){ overlay.classList.remove('show'); modal.className='modal'; modal.innerHTML=''; }
