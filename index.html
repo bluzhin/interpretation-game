@@ -53,19 +53,20 @@
   .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
   .btn.icon{padding:8px 11px}
 
-  /* Карусель авторов (горизонтальная) */
-  .authors-bar{display:flex;gap:10px;align-items:stretch;padding:12px 18px;overflow-x:auto;
+  /* Карусель авторов (горизонтальная, крупные карточки 2–3 на экран) */
+  .authors-bar{display:flex;gap:16px;align-items:stretch;padding:16px 18px;overflow-x:auto;
     border-bottom:1px solid var(--line);background:var(--headBg)}
+  .authors-bar.full{flex:1;min-height:0}
   .authors-bar.hidden{display:none}
-  .auth-chip{width:280px;flex:0 0 auto;background:var(--panel);border:1px solid var(--line);
-    border-radius:12px;padding:11px 13px;cursor:pointer;transition:.12s;position:relative;display:flex;flex-direction:column}
-  .auth-chip:hover{border-color:var(--accent);transform:translateY(-1px)}
-  .auth-chip .nm{font-weight:650;font-size:13.5px;margin-bottom:2px;padding-right:14px}
-  .auth-chip .st{font-size:11px;color:var(--muted);margin-bottom:6px}
+  .auth-chip{width:clamp(360px,31vw,560px);flex:0 0 auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:16px 18px;cursor:pointer;transition:.12s;position:relative;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .auth-chip:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .auth-chip .nm{font-weight:700;font-size:17px;margin-bottom:3px;padding-right:16px}
+  .auth-chip .st{font-size:12px;color:var(--muted);margin-bottom:10px}
   .auth-chip .st.playing{color:var(--accent2)}
-  .auth-chip .tx{font-size:12px;line-height:1.45;color:var(--text);max-height:140px;
-    overflow-y:auto;white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--line);padding-top:6px}
-  .auth-chip .del{position:absolute;top:6px;right:7px;font-size:12px;z-index:2}
+  .auth-chip .tx{flex:1;min-height:80px;font-size:14px;line-height:1.6;color:var(--text);
+    overflow-y:auto;white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--line);padding-top:10px}
+  .auth-chip .del{position:absolute;top:10px;right:11px;font-size:13px;z-index:2}
   .auth-add{min-width:150px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
     border:1px dashed var(--line);border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;font-size:13px}
   .auth-add:hover{border-color:var(--accent);color:var(--accent)}
@@ -186,6 +187,10 @@
   .reader-body.pdf{padding:0;overflow:hidden}
   .reader-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
   .reader embed,.reader iframe{width:100%;height:70vh;border:none;border-radius:10px;background:#fff}
+  .reader.full{width:100vw;height:100vh;max-height:100vh;border-radius:0}
+  .reader.full .reader-body{flex:1}
+  .reader.full embed,.reader.full iframe{height:calc(100vh - 140px)}
+  .reader-head .tools{display:flex;gap:6px;align-items:center}
   .x-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
   .x-close:hover{color:var(--text)}
 </style>
@@ -392,14 +397,14 @@ function render(){
   board.innerHTML = '';
   // выбранный автор: исходный текст первой карточкой + ветки игроков
   if(root){
+    board.style.display = 'flex';
     board.appendChild(initialColumn(root));
     for(const chain of chainsForRoot(root.id)){
       board.appendChild(chainColumn(root, chain));
     }
   } else {
-    const hint = el('div','col');
-    hint.innerHTML = `<div class="col-body"><div class="empty">↑ Выберите автора сверху, чтобы прочитать его текст и сделать ход</div></div>`;
-    board.appendChild(hint);
+    // ничего не выбрано — карусель авторов заполняет экран, доска скрыта
+    board.style.display = 'none';
   }
 }
 
@@ -423,6 +428,7 @@ function renderAuthorsBar(root){
   }
   sel.classList.add('hidden');
   bar.classList.remove('hidden');
+  bar.classList.add('full');
   bar.innerHTML = '';
   const rs = roots();
   if(!rs.length){ bar.appendChild(elText('empty','Пока пусто. Нажмите «＋ Исходный текст».')); }
@@ -435,7 +441,6 @@ function renderAuthorsBar(root){
       <div class="tx"></div>`;
     chip.querySelector('.nm').textContent = r.author;
     chip.querySelector('.tx').textContent = preview(r.text, r);
-    chip.querySelector('.tx').onclick = (e)=>e.stopPropagation(); // прокрутка не выбирает
     chip.querySelector('.del').onclick = (e)=>{ e.stopPropagation();
       if(confirm('Удалить исходный текст «'+r.author+'» и все его ветки?')) dataLayer.remove(r.id); };
     chip.onclick = ()=>{ state.selected = r.id; render(); };
@@ -521,10 +526,14 @@ function openThreadReader(root, chain){
     <div class="reader-head">
       <div class="ti"><h2>Ветка: ${esc(root.author)} ⇄ ${esc(chain.responder)}</h2>
         <div class="who">основной текст → ходы по порядку (${chain.replies.length})</div></div>
-      <button class="x-close" title="Закрыть">✕</button>
+      <div class="tools">
+        <button class="x-close" id="fs" title="Развернуть на весь экран">⛶</button>
+        <button class="x-close" title="Закрыть">✕</button>
+      </div>
     </div>
     <div class="reader-body"><div class="thread big">${blocks.join('')}</div></div>
     <div class="reader-foot"></div>`;
+  modal.querySelector('#fs').onclick = ()=>modal.classList.toggle('full');
   const foot = modal.querySelector('.reader-foot');
   const next = nextRoundInfo(root, chain);
   const ans = el('button','btn sm primary');
@@ -557,11 +566,8 @@ function nextRoundInfo(root, chain){
   return {round, author, toName};
 }
 
-// текст для карточки — полный, прокручивается в окне превью
+// текст для карточки/превью — извлечённый текст (в т.ч. для PDF); сам PDF остаётся в окне чтения
 function preview(text, item){
-  // PDF показываем как оригинал в витрине, а не кривой извлечённый текст
-  if(item && (item.fileType||'').toLowerCase()==='pdf')
-    return '📄 PDF-документ. Нажмите «Читать», чтобы открыть оригинал.';
   const t = (text||'').trim();
   if(t) return t;
   if(item && item.fileName) return '📎 '+item.fileName;
@@ -617,10 +623,14 @@ function openReader(item){
   modal.innerHTML = `
     <div class="reader-head">
       <div class="ti"><h2>${title}</h2><div class="who">${who}</div></div>
-      <button class="x-close" title="Закрыть">✕</button>
+      <div class="tools">
+        <button class="x-close" id="fs" title="Развернуть на весь экран">⛶</button>
+        <button class="x-close" title="Закрыть">✕</button>
+      </div>
     </div>
     ${bodyHtml}
     <div class="reader-foot"></div>`;
+  modal.querySelector('#fs').onclick = ()=>modal.classList.toggle('full');
   const foot = modal.querySelector('.reader-foot');
   if(isRoot){
     const play = el('button','btn sm primary'); play.textContent='🎮 Начать игру — ответить автору';
