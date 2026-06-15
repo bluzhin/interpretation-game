@@ -126,6 +126,29 @@
   .th-tag.odd{background:var(--accent2)}
   .th-tag.root{background:var(--root)}
   .th-text{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+
+  /* мини-кнопки на карточках */
+  .card-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .chip-btn{font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;gap:5px;align-items:center}
+  .chip-btn:hover{border-color:var(--accent)}
+  .chip-btn.read{border-color:var(--accent);color:var(--accent)}
+  .file-tag{font-size:11px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:6px}
+  .file-tag .ext{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:1px 6px;text-transform:uppercase;font-weight:700;font-size:10px}
+
+  /* витрина — большое окно чтения */
+  .reader{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    width:min(860px,100%);max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .reader-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px}
+  .reader-head .ti{flex:1}
+  .reader-head h2{margin:0;font-size:17px}
+  .reader-head .who{color:var(--muted);font-size:13px;margin-top:4px}
+  .reader-body{padding:22px 26px;overflow:auto;line-height:1.7;font-size:15px;white-space:pre-wrap;word-break:break-word}
+  .reader-body.empty{color:var(--muted);font-style:italic}
+  .reader-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .reader embed,.reader iframe{width:100%;height:70vh;border:none;border-radius:10px;background:#fff}
+  .x-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .x-close:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -140,6 +163,9 @@
 </header>
 
 <div class="board" id="board"></div>
+
+<!-- импорт готовых веток (реальные тексты); файл может отсутствовать -->
+<script src="seed.js" onerror="window.SEED=window.SEED||null"></script>
 
 <!-- Modal -->
 <div class="overlay" id="overlay">
@@ -174,7 +200,15 @@ let dataLayer = null;
 
 function makeLocalLayer(room){
   const key = LS.local(room);
-  function read(){ try{return JSON.parse(localStorage.getItem(key))||[]}catch(e){return []} }
+  function read(){
+    let raw = localStorage.getItem(key);
+    if(raw===null && Array.isArray(window.SEED)){
+      // первый запуск — импортируем готовые ветки (реальные тексты)
+      write(window.SEED);
+      raw = localStorage.getItem(key);
+    }
+    try{return JSON.parse(raw)||[]}catch(e){return []}
+  }
   function write(arr){ localStorage.setItem(key, JSON.stringify(arr)); }
   return {
     mode:'local',
@@ -333,11 +367,13 @@ function rootsColumn(){
       <button class="del" title="Удалить">✕</button>
       <div class="ttl"></div>
       <div class="author">Автор: <b></b></div>
-      <div class="text"></div>`;
+      <div class="text preview"></div>`;
     card.querySelector('.ttl').textContent = r.title || '(без названия)';
     card.querySelector('.author b').textContent = r.author;
-    fillText(card.querySelector('.text'), r.id, r.text);
+    card.querySelector('.text').textContent = preview(r.text, r);
     card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить исходный текст и все его ветки?')) dataLayer.remove(r.id); };
+    card.appendChild(fileTag(r));
+    card.appendChild(cardActions(r, '📖 Читать текст'));
     const foot = el('div','');foot.style.marginTop='8px';
     const btn = el('button','btn sm primary'); btn.textContent='💬 Начать ветку-ответ';
     btn.onclick = ()=>openReplyModal(r, null);
@@ -368,9 +404,11 @@ function chainColumn(root, chain){
     card.innerHTML = `<button class="del" title="Удалить">✕</button>
       <div class="ctop"><span class="round-badge ${odd?'odd':''}">КРУГ ${rep.round}</span>
       <span class="author">от <b>${esc(rep.author)}</b> → ${esc(rep.toName)}</span></div>
-      <div class="text"></div>`;
-    fillText(card.querySelector('.text'), rep.id, rep.text);
+      <div class="text preview"></div>`;
+    card.querySelector('.text').textContent = preview(rep.text, rep);
     card.querySelector('.del').onclick = ()=>{ if(confirm('Удалить этот ответ (круг '+rep.round+')?')) dataLayer.remove(rep.id); };
+    card.appendChild(fileTag(rep));
+    card.appendChild(cardActions(rep, '📖 Читать'));
     body.appendChild(card);
   }
   col.appendChild(body);
@@ -392,20 +430,78 @@ function nextRoundInfo(root, chain){
   return {round, author, toName};
 }
 
-function fillText(node, id, text){
-  const long = (text||'').length > 320;
-  node.textContent = text || '';
-  if(long && !state.expanded.has(id)){
-    node.classList.add('clamped');
-    const ex = el('span','expand'); ex.textContent='Показать полностью ▾';
-    ex.onclick = ()=>{ state.expanded.add(id); render(); };
-    node.after(ex);
-  } else if(long){
-    const ex = el('span','expand'); ex.textContent='Свернуть ▴';
-    ex.onclick = ()=>{ state.expanded.delete(id); render(); };
-    node.after(ex);
-  }
+// краткий превью текста для карточки
+function preview(text, item){
+  const t = (text||'').replace(/\s+/g,' ').trim();
+  if(t) return t.length > 220 ? t.slice(0,220)+'…' : t;
+  if(item && item.fileName) return '📎 '+item.fileName;
+  return '(пусто)';
 }
+
+// плашка с типом файла
+function fileTag(item){
+  const wrap = el('div','');
+  if(item && item.fileName){
+    const t = el('div','file-tag');
+    t.innerHTML = `<span class="ext">${esc(item.fileType||'файл')}</span><span>${esc(item.fileName)}</span>`;
+    wrap.appendChild(t);
+  }
+  return wrap;
+}
+
+// кнопки «Читать» (витрина) + «Скачать» / «Открыть PDF»
+function cardActions(item, readLabel){
+  const box = el('div','card-actions');
+  const read = el('button','chip-btn read'); read.textContent = readLabel || '📖 Читать';
+  read.onclick = ()=>openReader(item);
+  box.appendChild(read);
+  if(item.fileUrl){
+    const dl = document.createElement('a'); dl.className='chip-btn'; dl.href=item.fileUrl;
+    dl.setAttribute('download', item.fileName||''); dl.textContent='⬇ Скачать';
+    box.appendChild(dl);
+    if((item.fileType||'').toLowerCase()==='pdf'){
+      const op = document.createElement('a'); op.className='chip-btn'; op.href=item.fileUrl;
+      op.target='_blank'; op.textContent='🔍 Открыть PDF'; box.appendChild(op);
+    }
+  } else if(item.fileData){ // загруженный файл (data URL)
+    const dl = document.createElement('a'); dl.className='chip-btn'; dl.href=item.fileData;
+    dl.setAttribute('download', item.fileName||'файл'); dl.textContent='⬇ Скачать';
+    box.appendChild(dl);
+  }
+  return box;
+}
+
+// витрина — окно чтения
+function openReader(item){
+  const isRoot = item.type==='root';
+  const who = isRoot ? ('Автор: '+esc(item.author)) :
+    ('Круг '+item.round+' · от '+esc(item.author)+' → '+esc(item.toName));
+  const title = isRoot ? esc(item.title||item.author) : ('Ответ — '+esc(item.toName));
+  const pdfUrl = (item.fileType||'').toLowerCase()==='pdf' ? (item.fileUrl||item.fileData) : null;
+  const text = item.text || '';
+  modal.className = 'reader';
+  modal.innerHTML = `
+    <div class="reader-head">
+      <div class="ti"><h2>${title}</h2><div class="who">${who}</div></div>
+      <button class="x-close" title="Закрыть">✕</button>
+    </div>
+    <div class="reader-body ${text?'':'empty'}">${ text ? esc(text) : 'Текст недоступен для предпросмотра — скачайте оригинал.' }</div>
+    <div class="reader-foot"></div>`;
+  const foot = modal.querySelector('.reader-foot');
+  if(pdfUrl){
+    const op = document.createElement('a'); op.className='btn sm'; op.href=pdfUrl; op.target='_blank'; op.textContent='🔍 Открыть PDF в новой вкладке'; foot.appendChild(op);
+  }
+  const url = item.fileUrl || item.fileData;
+  if(url){
+    const dl = document.createElement('a'); dl.className='btn sm primary'; dl.href=url;
+    dl.setAttribute('download', item.fileName||''); dl.textContent='⬇ Скачать оригинал';
+    foot.appendChild(dl);
+  }
+  const cl = el('button','btn sm ghost'); cl.textContent='Закрыть'; cl.onclick=closeReader; foot.appendChild(cl);
+  modal.querySelector('.x-close').onclick = closeReader;
+  overlay.classList.add('show');
+}
+function closeReader(){ overlay.classList.remove('show'); modal.className='modal'; modal.innerHTML=''; }
 
 /* ---------- Верхняя панель ---------- */
 function renderChrome(){
@@ -433,7 +529,7 @@ function requireIdentity(cb){
 /* ---------- Модальные окна ---------- */
 const overlay = document.getElementById('overlay');
 const modal = document.getElementById('modal');
-function closeModal(){ overlay.classList.remove('show'); modal.innerHTML=''; }
+function closeModal(){ overlay.classList.remove('show'); modal.className='modal'; modal.innerHTML=''; }
 overlay.addEventListener('click',(e)=>{ if(e.target===overlay) closeModal(); });
 
 function requireName(cb){
@@ -464,18 +560,24 @@ function openRootModal(){
     modal.innerHTML = `<h2>📜 Новый исходный текст</h2>
       <div class="content">
         <div class="field"><label>Название</label><input id="ttl" placeholder="Заголовок текста"></div>
-        <div class="field"><label>Текст</label><textarea id="txt" placeholder="Ваш исходный текст для интерпретации…"></textarea></div>
-        <div class="hint">Автор: <b>${esc(state.me)}</b></div>
+        <div class="field"><label>Текст (введите с клавиатуры)</label><textarea id="txt" placeholder="Ваш исходный текст для интерпретации…"></textarea></div>
+        <div class="field"><label>…или загрузите файл (docx, pdf, doc, txt)</label>
+          <input type="file" id="file" accept=".doc,.docx,.pdf,.txt"></div>
+        <div class="hint">Автор: <b>${esc(state.me)}</b>. Можно ввести текст, загрузить файл или и то, и другое.</div>
       </div>
       <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
       <button class="btn primary" id="save">Опубликовать</button></div>`;
     overlay.classList.add('show'); modal.querySelector('#ttl').focus();
     modal.querySelector('#cancel').onclick = closeModal;
-    modal.querySelector('#save').onclick = ()=>{
+    modal.querySelector('#save').onclick = async ()=>{
       const title = modal.querySelector('#ttl').value.trim();
       const text = modal.querySelector('#txt').value.trim();
-      if(!text) return modal.querySelector('#txt').focus();
-      dataLayer.add({type:'root', author:state.me, title, text, ...ownerFields()});
+      const up = await readUpload(modal.querySelector('#file'));
+      if(!text && !up) return alert('Введите текст или загрузите файл.');
+      const post = {type:'root', author:state.me, title:title||state.me,
+        text: text || (up && up.text) || '', ...ownerFields()};
+      if(up){ post.fileName=up.fileName; post.fileType=up.fileType; post.fileData=up.fileData; }
+      dataLayer.add(post);
       closeModal();
     };
   });
@@ -522,20 +624,26 @@ function openReplyModal(root, chain){
           <input id="resp" value="${esc(responder)}"></div>` : ''}
         <div class="field" style="margin-top:14px"><label>Текст ответа (круг ${info.round}, автор ${esc(lockedAuthor)})</label>
           <textarea id="txt" placeholder="Ваша интерпретация / ответ…"></textarea></div>
+        <div class="field"><label>…или загрузите файл (docx, pdf, doc, txt)</label>
+          <input type="file" id="file" accept=".doc,.docx,.pdf,.txt"></div>
       </div>
       <div class="actions"><button class="btn ghost" id="cancel">Отмена</button>
       <button class="btn primary" id="save">Отправить</button></div>`;
     overlay.classList.add('show'); modal.querySelector('#txt').focus();
     modal.querySelector('#cancel').onclick = closeModal;
-    modal.querySelector('#save').onclick = ()=>{
+    modal.querySelector('#save').onclick = async ()=>{
       const text = modal.querySelector('#txt').value.trim();
-      if(!text) return modal.querySelector('#txt').focus();
+      const up = await readUpload(modal.querySelector('#file'));
+      if(!text && !up) return alert('Введите текст или загрузите файл.');
       const respVal = isNew ? (modal.querySelector('#resp').value.trim()||state.me) : responder;
       const round = isNew ? 1 : info.round;
       // автор круга всегда вычисляется автоматически: ветка остаётся между теми же двумя
       const authVal = round % 2 === 1 ? respVal : root.author;
       const toName  = round % 2 === 1 ? root.author : respVal;
-      dataLayer.add({type:'reply', rootId:root.id, responder:respVal, round, author:authVal, toName, text, ...ownerFields()});
+      const post = {type:'reply', rootId:root.id, responder:respVal, round, author:authVal, toName,
+        text: text || (up && up.text) || '', ...ownerFields()};
+      if(up){ post.fileName=up.fileName; post.fileType=up.fileType; post.fileData=up.fileData; }
+      dataLayer.add(post);
       closeModal();
     };
   });
@@ -629,6 +737,35 @@ function openSettings(){
 /* ---------- утилиты ---------- */
 function ownerFields(){
   return state.user ? {authorUid:state.user.uid, authorEmail:state.user.email} : {};
+}
+
+// загрузка файла: сохраняем для скачивания + по возможности извлекаем читаемый текст
+let _mammoth = null;
+async function loadMammoth(){
+  if(_mammoth!==null) return _mammoth;
+  try{
+    await new Promise((res,rej)=>{ const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+      s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    _mammoth = window.mammoth || false;
+  }catch(e){ _mammoth = false; }
+  return _mammoth;
+}
+async function readUpload(input){
+  const f = input && input.files && input.files[0];
+  if(!f) return null;
+  const ext = (f.name.split('.').pop()||'').toLowerCase();
+  const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+  let text='';
+  try{
+    if(ext==='txt'){ text = (await f.text()).trim(); }
+    else if(ext==='docx'){
+      const mm = await loadMammoth();
+      if(mm){ const ab = await f.arrayBuffer(); const r = await mm.extractRawText({arrayBuffer:ab}); text=(r.value||'').trim(); }
+    }
+  }catch(e){ console.warn('Не удалось извлечь текст:', e); }
+  return {fileName:f.name, fileType:ext, fileData:dataUrl, text};
 }
 function el(tag,cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
 function elText(cls,txt){ const e=el('div',cls); e.textContent=txt; return e; }
