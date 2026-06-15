@@ -160,6 +160,10 @@
   .th-tag.odd{background:var(--accent2)}
   .th-tag.root{background:var(--root)}
   .th-text{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .thread.big{max-height:none;border:none;padding:0;background:transparent;gap:16px}
+  .thread.big .thread-item{padding:14px 16px}
+  .thread.big .th-text{font-size:15px;line-height:1.7}
+  .thread.big .th-meta{font-size:12px;margin-bottom:8px}
 
   /* мини-кнопки на карточках */
   .card-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
@@ -493,12 +497,56 @@ function chainColumn(root, chain){
   col.appendChild(body);
   const foot = el('div','col-foot');
   const next = nextRoundInfo(root, chain);
-  const btn = el('button','btn sm primary'); btn.style.width='100%';
-  btn.textContent = `＋ Ответить (круг ${next.round}, пишет ${next.author})`;
-  btn.onclick = ()=>openReplyModal(root, chain);
-  foot.appendChild(btn);
+  const readBtn = el('button','btn sm primary'); readBtn.style.width='100%';
+  readBtn.textContent = '📖 Читать ветку';
+  readBtn.onclick = ()=>openThreadReader(root, chain);
+  const ansBtn = el('button','btn sm'); ansBtn.style.width='100%'; ansBtn.style.marginTop='8px';
+  ansBtn.textContent = `＋ Ответить (круг ${next.round}, пишет ${next.author})`;
+  ansBtn.onclick = ()=>openReplyModal(root, chain);
+  foot.appendChild(readBtn); foot.appendChild(ansBtn);
   col.appendChild(foot);
   return col;
+}
+
+// Чтение всей ветки подряд: основной текст → круг 1 → круг 2 → …
+function openThreadReader(root, chain){
+  const blocks = [];
+  blocks.push(blockHTML('ИСХОДНЫЙ', 'root', 'Автор: '+esc(root.author), root));
+  for(const rep of chain.replies){
+    const odd = rep.round%2===1;
+    blocks.push(blockHTML('КРУГ '+rep.round, odd?'odd':'', esc(rep.author)+' → '+esc(rep.toName), rep));
+  }
+  modal.className = 'reader';
+  modal.innerHTML = `
+    <div class="reader-head">
+      <div class="ti"><h2>Ветка: ${esc(root.author)} ⇄ ${esc(chain.responder)}</h2>
+        <div class="who">основной текст → ходы по порядку (${chain.replies.length})</div></div>
+      <button class="x-close" title="Закрыть">✕</button>
+    </div>
+    <div class="reader-body"><div class="thread big">${blocks.join('')}</div></div>
+    <div class="reader-foot"></div>`;
+  const foot = modal.querySelector('.reader-foot');
+  const next = nextRoundInfo(root, chain);
+  const ans = el('button','btn sm primary');
+  ans.textContent = `＋ Ответить (круг ${next.round})`;
+  ans.onclick = ()=>{ closeReader(); openReplyModal(root, chain); };
+  const cl = el('button','btn sm ghost'); cl.textContent='Закрыть'; cl.onclick=closeReader;
+  foot.appendChild(ans); foot.appendChild(cl);
+  modal.querySelector('.x-close').onclick = closeReader;
+  overlay.classList.add('show');
+}
+function blockHTML(tag, cls, who, item){
+  const isPdf = (item.fileType||'').toLowerCase()==='pdf';
+  let inner;
+  if(isPdf && (item.fileUrl||item.fileData)){
+    inner = `<div class="th-text"><a class="chip-btn" href="${item.fileUrl||item.fileData}" target="_blank">🔍 Открыть PDF</a></div>`;
+  } else {
+    const t = (item.text||'').trim();
+    inner = `<div class="th-text">${ t ? esc(t) : (item.fileName ? '📎 '+esc(item.fileName)+' — скачайте оригинал' : '(пусто)') }</div>`;
+  }
+  return `<div class="thread-item ${cls==='root'?'root':''}">
+    <div class="th-meta"><span class="th-tag ${cls}">${tag}</span> ${who}${item.fileName?(' · '+esc(item.fileName)):''}</div>
+    ${inner}</div>`;
 }
 
 function nextRoundInfo(root, chain){
