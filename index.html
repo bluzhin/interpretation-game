@@ -134,7 +134,6 @@
   <h1>🎭 Игра в интерпретацию</h1>
   <span class="sub" id="roomLabel"></span>
   <div class="spacer"></div>
-  <span class="pill" id="modePill"><span class="dot"></span><span id="modeText">…</span></span>
   <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
   <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
@@ -411,10 +410,6 @@ function fillText(node, id, text){
 /* ---------- Верхняя панель ---------- */
 function renderChrome(){
   document.getElementById('roomLabel').textContent = '· комната: ' + state.room;
-  const mp = document.getElementById('modePill');
-  const mt = document.getElementById('modeText');
-  mp.className = 'pill ' + state.mode;
-  mt.textContent = state.mode === 'cloud' ? 'Облако (общий доступ)' : 'Локально (этот компьютер)';
   const me = document.getElementById('meText');
   const pill = document.getElementById('mePill');
   if(state.mode === 'cloud'){
