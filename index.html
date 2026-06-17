@@ -235,6 +235,7 @@
   <span class="sub" id="roomLabel"></span>
   <div class="spacer"></div>
   <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
+  <button class="btn sm" id="mapBtn" title="Карта игры от Полины">📎 Карта игры</button>
   <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
   <button class="btn icon" id="themeBtn" title="Тема">🌓</button>
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
@@ -264,7 +265,7 @@ const LS = {
   room: 'ig_room',
   theme: 'ig_theme',
   // версия в ключе: при обновлении исходных данных (seed) переимпорт произойдёт автоматически
-  local: (room) => 'ig_data_v2_' + room,
+  local: (room) => 'ig_data_v3_' + room,
 };
 
 let state = {
@@ -991,6 +992,7 @@ applyTheme(localStorage.getItem(LS.theme) || 'dark');
 document.getElementById('newRootBtn').onclick = openRootModal;
 document.getElementById('settingsBtn').onclick = openSettings;
 document.getElementById('themeBtn').onclick = toggleTheme;
+document.getElementById('mapBtn').onclick = ()=>window.open('files/map/karta.pdf','_blank');
 document.getElementById('mePill').onclick = openIdentityUI;
 
 /* ---------- старт ---------- */
