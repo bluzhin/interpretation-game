@@ -5,25 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Игра в интерпретацию</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎭</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
-    --text:#e8eaf0; --muted:#9aa3b2; --accent:#6c8cff; --accent2:#36c2a8;
-    --root:#ffb84d; --chip:#262b36; --danger:#ff6b6b; --shadow:0 6px 22px rgba(0,0,0,.35);
-    --radius:14px; --bgGrad:radial-gradient(1200px 600px at 70% -10%,#1a2030,#0f1115 60%);
-    --headBg:rgba(20,23,30,.7); --selected:#23304f;
-  }
-  body.light{
-    --bg:#f4f6fb; --panel:#ffffff; --panel2:#f7f9fc; --line:#dfe4ee;
-    --text:#1b2030; --muted:#697086; --accent:#3b5bdb; --accent2:#0ca678;
-    --root:#e8950c; --chip:#eef1f7; --danger:#e03131; --shadow:0 6px 22px rgba(30,40,70,.12);
-    --bgGrad:radial-gradient(1200px 600px at 70% -10%,#eaf0ff,#f4f6fb 60%);
-    --headBg:rgba(255,255,255,.8); --selected:#dbe6ff;
+    --bg:#060812; --panel:#0d1120; --panel2:#111827; --line:rgba(74,108,247,.15);
+    --text:#e8eeff; --muted:#8892b0; --accent:#4a6cf7; --accent2:#36c2a8;
+    --root:#ffb84d; --chip:#0d1528; --danger:#ff6b6b; --shadow:0 6px 22px rgba(0,0,0,.5);
+    --radius:14px; --bgGrad:radial-gradient(1200px 600px at 70% -10%,#0d1528,#060812 60%);
+    --headBg:rgba(6,8,18,.85); --selected:#0d2040;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
   body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     background:var(--bgGrad);
     color:var(--text);display:flex;flex-direction:column;height:100vh;overflow:hidden;
   }
@@ -108,7 +104,7 @@
   .author-card .ttl{font-weight:650;font-size:14px}
   .card .ctop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
   .round-badge{
-    font-size:11px;font-weight:700;color:#0f1115;background:var(--accent);border-radius:6px;padding:2px 7px;
+    font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 7px;
   }
   .round-badge.odd{background:var(--accent2)}
   .card .author{font-size:12px;color:var(--muted)}
@@ -158,7 +154,7 @@
   .thread-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .thread-item.root{border-left:3px solid var(--root)}
   .th-meta{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .th-tag{font-size:10px;font-weight:700;color:#0f1115;background:var(--accent);border-radius:5px;padding:2px 6px}
+  .th-tag{font-size:10px;font-weight:700;color:#fff;background:var(--accent);border-radius:5px;padding:2px 6px}
   .th-tag.odd{background:var(--accent2)}
   .th-tag.root{background:var(--root)}
   .th-text{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
@@ -226,18 +222,23 @@
     .reader-foot{justify-content:stretch}
     .reader-foot .btn{flex:1;text-align:center}
   }
+  .nl-back{color:var(--muted);text-decoration:none;font-size:13px;letter-spacing:.04em;transition:color .2s}
+  .nl-back:hover{color:var(--text)}
+  .nl-sep{color:rgba(136,146,176,.35);font-size:13px;margin:0 4px}
+  header h1{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;letter-spacing:.04em;margin:0}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🎭 Игра в интерпретацию</h1>
+  <a href="https://nooslab.ru/interpretation-game" class="nl-back">← NOOSLAB</a>
+  <span class="nl-sep">/</span>
+  <h1>Игра в интерпретацию</h1>
   <span class="sub" id="roomLabel"></span>
   <div class="spacer"></div>
   <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
   <button class="btn sm" id="mapBtn" title="Карта игры от Полины">📎 Карта игры</button>
   <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
-  <button class="btn icon" id="themeBtn" title="Тема">🌓</button>
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
 </header>
 
@@ -263,7 +264,6 @@ const LS = {
   me: 'ig_me',
   fb: 'ig_fb_config',
   room: 'ig_room',
-  theme: 'ig_theme',
   // версия в ключе: при обновлении исходных данных (seed) переимпорт произойдёт автоматически
   local: (room) => 'ig_data_v4_' + room,
 };
@@ -277,6 +277,10 @@ let state = {
   user: null,        // объект пользователя Google (в облачном режиме)
   selected: null,    // выбранный автор (rootId)
 };
+// URL room override (от лобби)
+const _urlRoom = new URLSearchParams(location.search).get('room');
+if (_urlRoom) { state.room = _urlRoom; localStorage.setItem(LS.room, _urlRoom); }
+
 
 /* ---------- Слой данных (абстракция над local/cloud) ---------- */
 let dataLayer = null;
@@ -978,20 +982,10 @@ function openIdentityUI(){
   else { openMeModal(); }
 }
 
-/* ---------- тема ---------- */
-function applyTheme(t){
-  document.body.classList.toggle('light', t==='light');
-  localStorage.setItem(LS.theme, t);
-}
-function toggleTheme(){
-  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
-}
-applyTheme(localStorage.getItem(LS.theme) || 'dark');
 
 /* ---------- кнопки ---------- */
 document.getElementById('newRootBtn').onclick = openRootModal;
 document.getElementById('settingsBtn').onclick = openSettings;
-document.getElementById('themeBtn').onclick = toggleTheme;
 document.getElementById('mapBtn').onclick = ()=>window.open('files/map/karta.pdf','_blank');
 document.getElementById('mePill').onclick = openIdentityUI;
 
