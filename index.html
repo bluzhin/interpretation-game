@@ -16,6 +16,15 @@
     --radius:14px; --bgGrad:radial-gradient(1200px 600px at 70% -10%,#0d1528,#060812 60%);
     --headBg:rgba(6,8,18,.85); --selected:#0d2040;
   }
+  [data-theme="light"]{
+    --bg:#f4f6fb; --panel:#ffffff; --panel2:#f7f9fc; --line:#dfe4ee;
+    --text:#1b2030; --muted:#697086; --accent:#3b5bdb; --accent2:#0ca678;
+    --root:#e8950c; --chip:#eef1f7; --danger:#e03131; --shadow:0 6px 22px rgba(30,40,70,.12);
+    --bgGrad:radial-gradient(1200px 600px at 70% -10%,#eaf0ff,#f4f6fb 60%);
+    --headBg:rgba(255,255,255,.85); --selected:#dbe6ff;
+  }
+  [data-theme="light"] .round-badge,[data-theme="light"] .th-tag{color:#1b2030}
+  [data-theme="light"] body{background:var(--bgGrad)}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
   body{
@@ -43,7 +52,7 @@
     border:1px solid var(--line);background:var(--panel2);color:var(--text);
     padding:8px 14px;border-radius:10px;cursor:pointer;font-size:13px;transition:.15s;
   }
-  .btn:hover{border-color:var(--accent);background:#222838}
+  .btn:hover{border-color:var(--accent);background:var(--chip)}
   .btn.primary{background:linear-gradient(180deg,#7b97ff,#5d7bff);border-color:#5d7bff;color:#fff;font-weight:600}
   .btn.primary:hover{filter:brightness(1.07)}
   .btn.ghost{background:transparent}
@@ -227,6 +236,11 @@
   .nl-sep{color:rgba(136,146,176,.35);font-size:13px;margin:0 4px}
   header h1{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;letter-spacing:.04em;margin:0}
 </style>
+<script>
+(function(){document.documentElement.setAttribute('data-theme',localStorage.getItem('nl_theme')||'dark');})();
+function toggleTheme(){const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('nl_theme',n);const b=document.getElementById('themeToggle');if(b)b.textContent=n==='dark'?'🌙':'☀';}
+document.addEventListener('DOMContentLoaded',function(){const b=document.getElementById('themeToggle');if(b)b.textContent=(localStorage.getItem('nl_theme')||'dark')==='dark'?'🌙':'☀';});
+</script>
 </head>
 <body>
 
@@ -239,6 +253,7 @@
   <span class="pill" id="mePill" title="Я"><span>👤</span><span id="meText">—</span></span>
   <button class="btn sm" id="mapBtn" title="Карта игры от Полины">📎 Карта игры</button>
   <button class="btn sm" id="newRootBtn">＋ Исходный текст</button>
+  <button class="btn icon" id="themeToggle" onclick="toggleTheme()" title="Тема">🌙</button>
   <button class="btn icon" id="settingsBtn" title="Настройки">⚙️</button>
 </header>
 
